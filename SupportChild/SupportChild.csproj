@@ -2,7 +2,9 @@
   
     <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <ApplicationIcon>ellie_icon.ico</ApplicationIcon>
+    <TargetFramework>net6.0</TargetFramework>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
     <Version>1.1.0</Version>
     <StartupObject>SupportChild.SupportChild</StartupObject>
     <Authors>EmotionChild</Authors>
