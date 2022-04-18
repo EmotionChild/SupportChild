@@ -1,11 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   
-    <PropertyGroup>
+  <PropertyGroup>
     <OutputType>Exe</OutputType>
     <ApplicationIcon>ellie_icon.ico</ApplicationIcon>
     <TargetFramework>net6.0</TargetFramework>
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <StartupObject>SupportChild.SupportChild</StartupObject>
     <Authors>EmotionChild</Authors>
     <Product />
@@ -13,17 +13,18 @@
     <RepositoryUrl>https://github.com/EmotionChild/SupportChild</RepositoryUrl>
     <RepositoryType>Git</RepositoryType>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <PackageIconUrl></PackageIconUrl>
+    <PackageIconUrl>https://cdn.emotionchild.com/Ellie.png</PackageIconUrl>
     <Description>A Discord support bot build for the Ellie's Home Discord server</Description>
-    <AssemblyVersion>2.5.0.0</AssemblyVersion>
-    <FileVersion>2.5.0.0</FileVersion>
+    <AssemblyVersion>2.6.1.1</AssemblyVersion>
+    <FileVersion>2.6.1.1</FileVersion>
     <NeutralLanguage>en</NeutralLanguage>
+    <PackageVersion>1.2.0</PackageVersion>
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="DSharpPlus" Version="4.1.0" />
-    <PackageReference Include="DSharpPlus.CommandsNext" Version="4.1.0" />
-    <PackageReference Include="DSharpPlus.Interactivity" Version="4.1.0" />
+    <PackageReference Include="DSharpPlus" Version="4.2.0-nightly-01109" />
+    <PackageReference Include="DSharpPlus.CommandsNext" Version="4.2.0-nightly-01109" />
+    <PackageReference Include="DSharpPlus.Interactivity" Version="4.2.0-nightly-01109" />
     <PackageReference Include="JsonExtensions" Version="1.2.0" />
     <PackageReference Include="MiniRazor.CodeGen" Version="2.2.1" />
     <PackageReference Include="MySql.Data" Version="8.0.28" />
@@ -33,7 +34,7 @@
     <PackageReference Include="Tyrrrz.Extensions" Version="1.6.5" />
     <PackageReference Include="YamlDotNet" Version="11.2.1" />
   </ItemGroup>
-
+  
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
       <DesignTime>True</DesignTime>
@@ -41,12 +42,19 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
   </ItemGroup>
-
+  
   <ItemGroup>
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

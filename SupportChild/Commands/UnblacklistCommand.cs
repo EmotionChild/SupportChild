@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
@@ -11,7 +11,7 @@ namespace SupportChild.Commands
     public class UnblacklistCommand : BaseCommandModule
     {
         [Command("unblacklist")]
-        [Description("Un-blacklists a user from from opening tickets.")]
+        [Description("Un-blacklists a user from opening tickets.")]
         public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
         {
             // Check if the user has permission to use this command.
@@ -84,7 +84,7 @@ namespace SupportChild.Commands
                     }
                     catch (Exception)
                     {
-                        DiscordEmbed message = new DiscordEmbedBuilder()
+                        DiscordEmbed message = new DiscordEmbedBuilder
                         {
                             Color = DiscordColor.Red,
                             Description = "Error occured while removing " + blacklistedUser.Mention + " from blacklist."

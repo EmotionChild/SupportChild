@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
@@ -10,11 +10,11 @@ namespace SupportChild.Commands
 {
     public class BlacklistCommand : BaseCommandModule
     {
-        [Command("balcklist")]
+        [Command("blacklist")]
         [Description("Blacklists a user from opening tickets.")]
         public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
         {
-            // Check is the user has permission to use this command.
+            // Check if the user has permission to use this command.
             if (!Config.HasPermission(command.Member, "blacklist"))
             {
                 DiscordEmbed error = new DiscordEmbedBuilder
@@ -79,6 +79,7 @@ namespace SupportChild.Commands
                                 Color = DiscordColor.Green,
                                 Description = blacklistedUser.Mention + " was blacklisted from opening tickets by " + command.Member.Mention + "."
                             };
+                            await logChannel.SendMessageAsync(logMessage);
                         }
                     }
                     catch (Exception)

@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
@@ -68,7 +68,7 @@ namespace SupportChild.Commands
 
                 DiscordEmbed message = new DiscordEmbedBuilder
                 {
-                    Color = DiscordColor.Red,
+                    Color = DiscordColor.Green,
                     Description = staffMember.active ? "Staff member is now set as inactive and will no longer be randomly assigned any support tickets." : "Staff member is now set as active and will be randomly assigned support tickets again."
                 };
                 await command.RespondAsync(message);

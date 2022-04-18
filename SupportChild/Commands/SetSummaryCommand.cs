@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
@@ -13,51 +13,51 @@ namespace SupportChild.Commands
         [Cooldown(1, 5, CooldownBucketType.User)]
         public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
         {
-			// Check if the user has permission to use this command.
-			if (!Config.HasPermission(command.Member, "setsummary"))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "You do not have permission to use this command."
-				};
-				await command.RespondAsync(error);
-				command.Client.Logger.Log(LogLevel.Information, "User tried to use the setsummary command but did not have permission.");
-				return;
-			}
-
-			ulong channelID = command.Channel.Id;
-			// Check if ticket exists in the database
-			if (!Database.TryGetOpenTicket(command.Channel.Id, out Database.Ticket ticket))
+            // Check if the user has permission to use this command.
+            if (!Config.HasPermission(command.Member, "setsummary"))
             {
-				DiscordEmbed error = new DiscordEmbedBuilder
+                DiscordEmbed error = new DiscordEmbedBuilder
                 {
-					Color = DiscordColor.Red,
-					Description = "This channel is not a ticket."
+                    Color = DiscordColor.Red,
+                    Description = "You do not have permission to use this command."
                 };
-				await command.RespondAsync(error);
-				return;
+                await command.RespondAsync(error);
+                command.Client.Logger.Log(LogLevel.Information, "User tried to use the setsummary command but did not have permission.");
+                return;
             }
 
-			string sumarry = command.Message.Content.Replace(Config.prefix + "setsummary", "").Trim();
-
-			using (MySqlConnection c = Database.GetConnection())
+            ulong channelID = command.Channel.Id;
+            // Check if ticket exists in the database
+            if (!Database.TryGetOpenTicket(command.Channel.Id, out Database.Ticket ticket))
             {
-				c.Open();
-				MySqlCommand update = new MySqlCommand(@"UPDATE tickets SET summary = @summary WHERE channel_id = @channel_id", c);
-				update.Parameters.AddWithValue("@summary", sumarry);
-				update.Parameters.AddWithValue("@channel_id", channelID);
-				update.Prepare();
-				update.ExecuteNonQuery();
-				update.Dispose();
-
-				DiscordEmbed message = new DiscordEmbedBuilder
+                DiscordEmbed error = new DiscordEmbedBuilder
                 {
-					Color = DiscordColor.Green,
-					Description = "Summary set."
+                    Color = DiscordColor.Red,
+                    Description = "This channel is not a ticket."
                 };
-				await command.RespondAsync(message);
+                await command.RespondAsync(error);
+                return;
             }
-		}
+
+            string summary = command.Message.Content.Replace(Config.prefix + "setsummary", "").Trim();
+
+            using (MySqlConnection c = Database.GetConnection())
+            {
+                c.Open();
+                MySqlCommand update = new MySqlCommand(@"UPDATE tickets SET summary = @summary WHERE channel_id = @channel_id", c);
+                update.Parameters.AddWithValue("@summary", summary);
+                update.Parameters.AddWithValue("@channel_id", channelID);
+                update.Prepare();
+                update.ExecuteNonQuery();
+                update.Dispose();
+
+                DiscordEmbed message = new DiscordEmbedBuilder
+                {
+                    Color = DiscordColor.Green,
+                    Description = "Summary set."
+                };
+                await command.RespondAsync(message);
+            }
+        }
     }
 }

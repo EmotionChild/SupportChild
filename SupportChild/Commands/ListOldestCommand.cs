@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
@@ -35,7 +35,7 @@ namespace SupportChild.Commands
                     DiscordEmbed error = new DiscordEmbedBuilder
                     {
                         Color = DiscordColor.Red,
-                        Description = "Invalid list amount. (Must be an integer between 5 and 100)"
+                        Description = "Invalid list amount. (Must be integer between 5 and 100)"
                     };
                     await command.RespondAsync(error);
                     return;
