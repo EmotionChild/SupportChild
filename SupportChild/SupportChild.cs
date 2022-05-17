@@ -25,7 +25,7 @@ namespace SupportChild
 		private async Task MainAsync()
 		{
 			instance = this;
-
+			
 			Console.WriteLine("Starting SupportChild version " + GetVersion() + "...");
 			try
 			{
@@ -61,10 +61,10 @@ namespace SupportChild
 				this.discordClient.Dispose();
 				Console.WriteLine("Discord client disconnected.");
 			}
-
+			
 			Console.WriteLine("Loading config \"" + Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar + "config.yml\"");
 			Config.LoadConfig();
-
+			
 			// Check if token is unset
 			if (Config.token == "<add-token-here>" || Config.token == "")
 			{
@@ -84,16 +84,16 @@ namespace SupportChild
 				Console.WriteLine("Could not set up database tables, please confirm connection settings, status of the server and permissions of MySQL user. Error: " + e);
 				throw;
 			}
-
+			
 			Console.WriteLine("Setting up Discord client...");
-
+			
 			// Checking log level
 			if (!Enum.TryParse(Config.logLevel, true, out LogLevel logLevel))
 			{
 				Console.WriteLine("Log level '" + Config.logLevel + "' invalid, using 'Information' instead.");
 				logLevel = LogLevel.Information;
 			}
-
+			
 			// Setting up client configuration
 			DiscordConfiguration cfg = new DiscordConfiguration
 			{
@@ -103,11 +103,11 @@ namespace SupportChild
 				AutoReconnect = true,
 				Intents = DiscordIntents.All
 			};
-
+			
 			this.discordClient = new DiscordClient(cfg);
-
+			
 			this.eventHandler = new EventHandler(this.discordClient);
-
+			
 			Console.WriteLine("Hooking events...");
 			this.discordClient.Ready += this.eventHandler.OnReady;
 			this.discordClient.GuildAvailable += this.eventHandler.OnGuildAvailable;
@@ -119,11 +119,11 @@ namespace SupportChild
 			{
 				this.discordClient.MessageReactionAdded += this.eventHandler.OnReactionAdded;
 			}
-
+			
 			Console.WriteLine("Registering commands...");
 			commands = discordClient.UseCommandsNext(new CommandsNextConfiguration
 			{
-				StringPrefixes = new[] { Config.prefix }
+				StringPrefixes = new []{ Config.prefix }
 			});
 
 			this.commands.RegisterCommands<AddCommand>();
