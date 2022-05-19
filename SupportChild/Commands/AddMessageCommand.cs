@@ -39,7 +39,7 @@ namespace SupportChild.Commands
                 await command.RespondAsync(error);
                 return;
             }
-
+            
             if (Database.TryGetMessage(identifier.ToLower(), out Database.Message _))
             {
                 DiscordEmbed error = new DiscordEmbedBuilder
@@ -51,7 +51,7 @@ namespace SupportChild.Commands
                 return;
             }
 
-            if (Database.AddMessage(identifier, command.Member.Id, message))
+            if(Database.AddMessage(identifier, command.Member.Id, message))
             {
                 DiscordEmbed error = new DiscordEmbedBuilder
                 {
@@ -71,7 +71,6 @@ namespace SupportChild.Commands
                 await command.RespondAsync(error);
                 return;
             }
-
         }
     }
 }

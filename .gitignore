@@ -362,5 +362,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
+# Manually added folders
 Windows-x64/
 Linux-x64/
+.idea
+.vs

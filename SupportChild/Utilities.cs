@@ -15,8 +15,8 @@ namespace SupportChild
             {
                 byte[] box = new byte[1];
                 do provider.GetBytes(box);
-                while (!(box[0] < n * (byte.MaxValue / n)));
-                int k = box[0] % n;
+                while (!(box[0] < n * (Byte.MaxValue / n)));
+                int k = (box[0] % n);
                 n--;
                 T value = list[k];
                 list[k] = list[n];
@@ -32,11 +32,11 @@ namespace SupportChild
             {
                 return new string[0];
             }
-            return args.Trim().Replace("<@!", "").Replace("<@", "").Replace(">", "").Split();
+            return  args.Trim().Replace("<@!", "").Replace("<@", "").Replace(">", "").Split();
         }
 
         public static LinkedList<string> ParseListIntoMessages(List<string> listItems)
-        {
+        { 
             LinkedList<string> messages = new LinkedList<string>();
 
             foreach (string listItem in listItems)

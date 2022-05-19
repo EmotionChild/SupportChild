@@ -40,7 +40,7 @@ namespace SupportChild.Commands
                 return;
             }
 
-            if (Database.RemoveMessage(identifier))
+            if(Database.RemoveMessage(identifier))
             {
                 DiscordEmbed error = new DiscordEmbedBuilder
                 {

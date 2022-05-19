@@ -8,92 +8,92 @@ using Microsoft.Extensions.Logging;
 
 namespace SupportChild.Commands
 {
-    public class UnblacklistCommand : BaseCommandModule
-    {
-        [Command("unblacklist")]
-        [Description("Un-blacklists a user from opening tickets.")]
-        public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
-        {
-            // Check if the user has permission to use this command.
-            if (!Config.HasPermission(command.Member, "unblacklist"))
-            {
-                DiscordEmbed error = new DiscordEmbedBuilder
-                {
-                    Color = DiscordColor.Red,
-                    Description = "You do not have permission to use this command."
-                };
-                await command.RespondAsync(error);
-                command.Client.Logger.Log(LogLevel.Information, "User tried to use the unblacklist command but did not have permission.");
-                return;
-            }
+	public class UnblacklistCommand : BaseCommandModule
+	{
+		[Command("unblacklist")]
+		[Description("Un-blacklists a user from opening tickets.")]
+		public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
+		{
+			// Check if the user has permission to use this command.
+			if (!Config.HasPermission(command.Member, "unblacklist"))
+			{
+				DiscordEmbed error = new DiscordEmbedBuilder
+				{
+					Color = DiscordColor.Red,
+					Description = "You do not have permission to use this command."
+				};
+				await command.RespondAsync(error);
+				command.Client.Logger.Log(LogLevel.Information, "User tried to use the unblacklist command but did not have permission.");
+				return;
+			}
 
-            string[] words = Utilities.ParseIDs(command.RawArgumentString);
-            foreach (string word in words)
-            {
-                if (ulong.TryParse(word, out ulong userId))
-                {
-                    DiscordUser blacklistedUser = null;
-                    try
-                    {
-                        blacklistedUser = await command.Client.GetUserAsync(userId);
-                    }
-                    catch (NotFoundException) { }
+			string[] words = Utilities.ParseIDs(command.RawArgumentString);
+			foreach (string word in words)
+			{
+				if (ulong.TryParse(word, out ulong userId))
+				{
+					DiscordUser blacklistedUser = null;
+					try
+					{
+						blacklistedUser = await command.Client.GetUserAsync(userId);
+					}
+					catch (NotFoundException) { }
 
-                    if (blacklistedUser == null)
-                    {
-                        DiscordEmbed message = new DiscordEmbedBuilder
-                        {
-                            Color = DiscordColor.Red,
-                            Description = "Error: Could not find user."
-                        };
-                        await command.RespondAsync(message);
-                        continue;
-                    }
+					if (blacklistedUser == null)
+					{
+						DiscordEmbed message = new DiscordEmbedBuilder
+						{
+							Color = DiscordColor.Red,
+							Description = "Error: Could not find user."
+						};
+						await command.RespondAsync(message);
+						continue;
+					}
 
-                    try
-                    {
-                        if (!Database.Unblacklist(blacklistedUser.Id))
-                        {
-                            DiscordEmbed error = new DiscordEmbedBuilder
-                            {
-                                Color = DiscordColor.Red,
-                                Description = blacklistedUser.Mention + " is not blacklisted."
-                            };
-                            await command.RespondAsync(error);
-                            continue;
-                        }
+					try
+					{
+						if (!Database.Unblacklist(blacklistedUser.Id))
+						{
+							DiscordEmbed error = new DiscordEmbedBuilder
+							{
+								Color = DiscordColor.Red,
+								Description = blacklistedUser.Mention + " is not blacklisted."
+							};
+							await command.RespondAsync(error);
+							continue;
+						}
 
-                        DiscordEmbed message = new DiscordEmbedBuilder
-                        {
-                            Color = DiscordColor.Green,
-                            Description = "Removed " + blacklistedUser.Mention + " from blacklist."
-                        };
-                        await command.RespondAsync(message);
+						DiscordEmbed message = new DiscordEmbedBuilder
+						{
+							Color = DiscordColor.Green,
+							Description = "Removed " + blacklistedUser.Mention + " from blacklist."
+						};
+						await command.RespondAsync(message);
 
-                        // Log it if the log channel exists
-                        DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
-                        if (logChannel != null)
-                        {
-                            DiscordEmbed logMessage = new DiscordEmbedBuilder
-                            {
-                                Color = DiscordColor.Green,
-                                Description = blacklistedUser.Mention + " was unblacklisted from opening tickets by " + command.Member.Mention + "."
-                            };
-                            await logChannel.SendMessageAsync(logMessage);
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        DiscordEmbed message = new DiscordEmbedBuilder
-                        {
-                            Color = DiscordColor.Red,
-                            Description = "Error occured while removing " + blacklistedUser.Mention + " from blacklist."
-                        };
-                        await command.RespondAsync(message);
-                        throw;
-                    }
-                }
-            }
-        }
-    }
+						// Log it if the log channel exists
+						DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
+						if (logChannel != null)
+						{
+							DiscordEmbed logMessage = new DiscordEmbedBuilder
+							{
+								Color = DiscordColor.Green,
+								Description = blacklistedUser.Mention + " was unblacklisted from opening tickets by " + command.Member.Mention + "."
+							};
+							await logChannel.SendMessageAsync(logMessage);
+						}
+					}
+					catch (Exception)
+					{
+						DiscordEmbed message = new DiscordEmbedBuilder
+						{
+							Color = DiscordColor.Red,
+							Description = "Error occured while removing " + blacklistedUser.Mention + " from blacklist."
+						};
+						await command.RespondAsync(message);
+						throw;
+					}
+				}
+			}
+		}
+	}
 }
