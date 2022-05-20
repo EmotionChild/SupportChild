@@ -55,7 +55,7 @@ jobs:
         with:
           # (Optional) The path to the project that should be published.
           # If not specified, defaults to '.'.
-          path: ''
+          path: 'SupportChild'
 
           # (Optional) Additional command line arguments to be passed to 'dotnet test'.
           # If not specified, defaults to 'packages'.
