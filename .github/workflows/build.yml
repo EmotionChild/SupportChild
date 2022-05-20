@@ -50,12 +50,26 @@ jobs:
 
     runs-on: windows-latest  # For a list of available runner types, refer to
                              # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
+                             
     steps:
+      - uses: EasyDesk/action-dotnet-build@v1
+        with:
+          # (Optional) Additional arguments for dotnet build.
+          build-args: -v normal
+
+          # (Optional) Build configuration, defaults to 'Release'
+          # If the version starts with the 'v' prefix, it will be removed to conform to the requirements of dotnet pack.
+          build-configuration: Release
+
+          # (Optional) The path of the project to build; if omitted, the whole solution is built
+          path: ./SupportChild/
+          
+          
       - uses: EasyDesk/action-dotnet-publish@v1
         with:
           # (Optional) The path to the project that should be published.
           # If not specified, defaults to '.'.
-          path: 'SupportChild'
+          path: './SupportChild/'
 
           # (Optional) Additional command line arguments to be passed to 'dotnet test'.
           # If not specified, defaults to 'packages'.
