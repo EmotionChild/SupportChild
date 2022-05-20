@@ -62,14 +62,14 @@ jobs:
           build-configuration: Release
 
           # (Optional) The path of the project to build; if omitted, the whole solution is built
-          path: '/SupportChild/SupportChild.csproj'
+          path: 'SupportChild/SupportChild.csproj'
           
           
       - uses: EasyDesk/action-dotnet-publish@v1
         with:
           # (Optional) The path to the project that should be published.
           # If not specified, defaults to '.'.
-          path: './SupportChild/SupportChild.csproj'
+          path: 'SupportChild/SupportChild.csproj'
 
           # (Optional) Additional command line arguments to be passed to 'dotnet test'.
           # If not specified, defaults to 'packages'.
