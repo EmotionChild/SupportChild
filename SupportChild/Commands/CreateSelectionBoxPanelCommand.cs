@@ -43,7 +43,7 @@ public class CreateSelectionBoxPanelCommand : ApplicationCommandModule
 			{
 				categoryOptions.Add(new DiscordSelectComponentOption(verifiedCategories[selectionOptions].name, verifiedCategories[selectionOptions].id.ToString()));
 			}
-			selectionComponents.Add(new DiscordSelectComponent("supportboi_newticketselector" + selectionBoxes, placeholder, categoryOptions, false, 0, 1));
+			selectionComponents.Add(new DiscordSelectComponent("supportchild_newticketselector" + selectionBoxes, placeholder, categoryOptions, false, 0, 1));
 		}
 
 		return selectionComponents;

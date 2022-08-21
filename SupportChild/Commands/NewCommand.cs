@@ -70,7 +70,7 @@ public class NewCommand : ApplicationCommandModule
 
 			for (; nrOfButtons < 5 * (nrOfButtonRows + 1) && nrOfButtons < verifiedCategories.Count; nrOfButtons++)
 			{
-				buttonRow.Add(new DiscordButtonComponent(ButtonStyle.Primary, "supportboi_newcommandbutton " + verifiedCategories[nrOfButtons].id, verifiedCategories[nrOfButtons].name));
+				buttonRow.Add(new DiscordButtonComponent(ButtonStyle.Primary, "supportchild_newcommandbutton " + verifiedCategories[nrOfButtons].id, verifiedCategories[nrOfButtons].name));
 			}
 			builder.AddComponents(buttonRow);
 		}
@@ -91,7 +91,7 @@ public class NewCommand : ApplicationCommandModule
 			{
 				categoryOptions.Add(new DiscordSelectComponentOption(verifiedCategories[selectionOptions].name, verifiedCategories[selectionOptions].id.ToString()));
 			}
-			selectionComponents.Add(new DiscordSelectComponent("supportboi_newcommandselector" + selectionBoxes, "Open new ticket...", categoryOptions, false, 0, 1));
+			selectionComponents.Add(new DiscordSelectComponent("supportchild_newcommandselector" + selectionBoxes, "Open new ticket...", categoryOptions, false, 0, 1));
 		}
 
 		await command.CreateResponseAsync(new DiscordInteractionResponseBuilder().AddComponents(selectionComponents).AsEphemeral());
@@ -103,7 +103,7 @@ public class NewCommand : ApplicationCommandModule
 		switch (interaction.Data.ComponentType)
 		{
 			case ComponentType.Button:
-				stringID = interaction.Data.CustomId.Replace("supportboi_newcommandbutton ", "");
+				stringID = interaction.Data.CustomId.Replace("supportchild_newcommandbutton ", "");
 				break;
 			case ComponentType.Select:
 				if (interaction.Data.Values == null || interaction.Data.Values.Length <= 0) return;
