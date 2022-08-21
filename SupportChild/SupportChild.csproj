@@ -5,7 +5,7 @@
         <ApplicationIcon>ellie_icon.ico</ApplicationIcon>
         <TargetFramework>net6.0</TargetFramework>
         <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
-        <Version>1.2.0</Version>
+      
         <StartupObject>SupportChild.SupportChild</StartupObject>
         <Authors>EmotionChild</Authors>
         <Product />
@@ -13,58 +13,58 @@
         <RepositoryUrl>https://github.com/EmotionChild/SupportChild</RepositoryUrl>
         <RepositoryType>Git</RepositoryType>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <PackageIconUrl>https://cdn.emotionchild.com/Ellie.png</PackageIconUrl>
-        <Description>A Discord support bot build for the Ellie's Home Discord server</Description>
-        <AssemblyVersion>2.6.1.1</AssemblyVersion>
-        <FileVersion>2.6.1.1</FileVersion>
+        <PackageIconUrl>https://cdn.discordapp.com/attachments/765441543100170271/914327948667011132/Ellie_Concept_2_transparent_ver.png</PackageIconUrl>
+        <Description>A Discord support ticket bot built for the Ellie's home server</Description>
         <NeutralLanguage>en</NeutralLanguage>
-        <PackageVersion>1.2.0</PackageVersion>
+        <Version>3.0.0.1</Version>
+        <PackageVersion>1.3.0</PackageVersion> 
+        <AssemblyVersion>3.0.0.1</AssemblyVersion>
+        <FileVersion>3.0.0.1</FileVersion>
+    </PropertyGroup>
+  
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <DebugType>full</DebugType>
     </PropertyGroup>
 
     <ItemGroup>
       <PackageReference Include="DSharpPlus" Version="4.2.0" />
-      <PackageReference Include="DSharpPlus.CommandsNext" Version="4.2.0" />
       <PackageReference Include="DSharpPlus.Interactivity" Version="4.2.0" />
+      <PackageReference Include="DSharpPlus.SlashCommands" Version="4.2.0" />
+      <PackageReference Include="Gress" Version="2.0.1" />
       <PackageReference Include="JsonExtensions" Version="1.2.0" />
       <PackageReference Include="MiniRazor.CodeGen" Version="2.2.1" />
-      <PackageReference Include="MySql.Data" Version="8.0.29" />
+      <PackageReference Include="MySql.Data" Version="8.0.30" />
       <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
       <PackageReference Include="Polly" Version="7.2.3" />
       <PackageReference Include="Superpower" Version="3.0.0" />
       <PackageReference Include="Tyrrrz.Extensions" Version="1.6.5" />
-      <PackageReference Include="YamlDotNet" Version="11.2.1" />
+      <PackageReference Include="WebMarkupMin.Core" Version="2.9.0" />
+      <PackageReference Include="YamlDotNet" Version="12.0.0" />
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Update="Properties\Resources.Designer.cs">
-            <DesignTime>True</DesignTime>
-            <AutoGen>True</AutoGen>
-            <DependentUpon>Resources.resx</DependentUpon>
-        </Compile>
+      <EmbeddedResource Update="Properties\Resources.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+    </ItemGroup>
+  
+    <ItemGroup>
+      <Folder Include="lib\" />
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Update="Properties\Resources.resx">
-            <Generator>ResXFileCodeGenerator</Generator>
-            <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
+      <Reference Include="DiscordChatExporter.Core">
+        <HintPath>lib\DiscordChatExporter.Core.dll</HintPath>
+      </Reference>
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="..\LICENSE">
-            <Pack>True</Pack>
-            <PackagePath></PackagePath>
-        </None>
-    </ItemGroup>
-
-    <ItemGroup>
-        <Folder Include="lib\" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <Reference Include="DiscordChatExporter.Core">
-            <HintPath>lib\DiscordChatExporter.Core.dll</HintPath>
-        </Reference>
+      <Compile Update="Properties\Resources.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>Resources.resx</DependentUpon>
+      </Compile>
     </ItemGroup>
 
 </Project>
