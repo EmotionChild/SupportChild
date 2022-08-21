@@ -16,7 +16,7 @@
         <PackageIconUrl>https://cdn.discordapp.com/attachments/765441543100170271/914327948667011132/Ellie_Concept_2_transparent_ver.png</PackageIconUrl>
         <Description>A Discord support ticket bot built for the Ellie's home server</Description>
         <NeutralLanguage>en</NeutralLanguage>
-        <Version>3.0.0.1</Version>
+        <Version>1.3.0</Version>
         <PackageVersion>1.3.0</PackageVersion> 
         <AssemblyVersion>3.0.0.1</AssemblyVersion>
         <FileVersion>3.0.0.1</FileVersion>
