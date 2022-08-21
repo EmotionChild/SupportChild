@@ -2,223 +2,153 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using DSharpPlus;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
-using DSharpPlus.CommandsNext.Exceptions;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
-using Microsoft.Extensions.Logging;
+using DSharpPlus.SlashCommands;
+using DSharpPlus.SlashCommands.Attributes;
+using DSharpPlus.SlashCommands.EventArgs;
+using SupportChild.Commands;
 
-namespace SupportChild
+namespace SupportChild;
+
+internal static class EventHandler
 {
-	internal class EventHandler
+	internal static Task OnReady(DiscordClient client, ReadyEventArgs e)
 	{
-		private DiscordClient discordClient;
+		Logger.Log("Client is ready to process events.");
 
-		//DateTime for the end of the cooldown
-		private static Dictionary<ulong, DateTime> reactionTicketCooldowns = new Dictionary<ulong, DateTime>();
-
-		public EventHandler(DiscordClient client)
+		// Checking activity type
+		if (!Enum.TryParse(Config.presenceType, true, out ActivityType activityType))
 		{
-			this.discordClient = client;
+			Logger.Log("Presence type '" + Config.presenceType + "' invalid, using 'Playing' instead.");
+			activityType = ActivityType.Playing;
 		}
 
-		internal Task OnReady(DiscordClient client, ReadyEventArgs e)
+		client.UpdateStatusAsync(new DiscordActivity(Config.presenceText, activityType), UserStatus.Online);
+		return Task.CompletedTask;
+	}
+
+	internal static Task OnGuildAvailable(DiscordClient _, GuildCreateEventArgs e)
+	{
+		Logger.Log("Guild available: " + e.Guild.Name);
+
+		IReadOnlyDictionary<ulong, DiscordRole> roles = e.Guild.Roles;
+
+		foreach ((ulong roleID, DiscordRole role) in roles)
 		{
-			discordClient.Logger.Log(LogLevel.Information, "Client is ready to process events.");
+			Logger.Log(role.Name.PadRight(40, '.') + roleID);
+		}
+		return Task.CompletedTask;
+	}
 
-			// Checking activity type
-			if (!Enum.TryParse(Config.presenceType, true, out ActivityType activityType))
-			{
-				Console.WriteLine("Presence type '" + Config.presenceType + "' invalid, using 'Playing' instead.");
-				activityType = ActivityType.Playing;
-			}
+	internal static Task OnClientError(DiscordClient _, ClientErrorEventArgs e)
+	{
+		Logger.Error("Client exception occured:\n" + e.Exception);
+		switch (e.Exception)
+		{
+			case BadRequestException ex:
+				Logger.Error("JSON Message: " + ex.JsonMessage);
+				break;
+		}
+		return Task.CompletedTask;
+	}
 
-			this.discordClient.UpdateStatusAsync(new DiscordActivity(Config.presenceText, activityType), UserStatus.Online);
-			return Task.CompletedTask;
+	internal static async Task OnMessageCreated(DiscordClient client, MessageCreateEventArgs e)
+	{
+		if (e.Author.IsBot)
+		{
+			return;
 		}
 
-		internal Task OnGuildAvailable(DiscordClient client, GuildCreateEventArgs e)
+		// Check if ticket exists in the database and ticket notifications are enabled
+		if (!Database.TryGetOpenTicket(e.Channel.Id, out Database.Ticket ticket) || !Config.ticketUpdatedNotifications)
 		{
-			discordClient.Logger.Log(LogLevel.Information, $"Guild available: {e.Guild.Name}");
-
-			IReadOnlyDictionary<ulong, DiscordRole> roles = e.Guild.Roles;
-
-			foreach ((ulong roleID, DiscordRole role) in roles)
-			{
-				discordClient.Logger.Log(LogLevel.Information, role.Name.PadRight(40, '.') + roleID);
-			}
-			return Task.CompletedTask;
+			return;
 		}
 
-		internal Task OnClientError(DiscordClient client, ClientErrorEventArgs e)
+		// Sends a DM to the assigned staff member if at least a day has gone by since the last message and the user sending the message isn't staff
+		IReadOnlyList<DiscordMessage> messages = await e.Channel.GetMessagesAsync(2);
+		if (messages.Count > 1 && messages[1].Timestamp < DateTimeOffset.UtcNow.AddDays(Config.ticketUpdatedNotificationDelay * -1) && !Database.IsStaff(e.Author.Id))
 		{
-			discordClient.Logger.Log(LogLevel.Error, $"Exception occured: {e.Exception.GetType()}: {e.Exception}");
-
-			return Task.CompletedTask;
-		}
-
-		internal async Task OnMessageCreated(DiscordClient client, MessageCreateEventArgs e)
-		{
-			if (e.Author.IsBot)
+			try
 			{
-				return;
-			}
-
-			// Check if ticket exists in the database and ticket notifications are enabled
-			if (!Database.TryGetOpenTicket(e.Channel.Id, out Database.Ticket ticket) || !Config.ticketUpdatedNotifications)
-			{
-				return;
-			}
-
-			// Sends a DM to the assigned staff member if at least a day has gone by since the last message and the user sending the message isn't staff
-			IReadOnlyList<DiscordMessage> messages = await e.Channel.GetMessagesAsync(2);
-			if (messages.Count > 1 && messages[1].Timestamp < DateTimeOffset.UtcNow.AddDays(Config.ticketUpdatedNotificationDelay * -1) && !Database.IsStaff(e.Author.Id))
-			{
-				try
+				DiscordMember staffMember = await e.Guild.GetMemberAsync(ticket.assignedStaffID);
+				await staffMember.SendMessageAsync(new DiscordEmbedBuilder
 				{
-					DiscordEmbed message = new DiscordEmbedBuilder
-					{
-						Color = DiscordColor.Green,
-						Description = "A ticket you are assigned to has been updated: " + e.Channel.Mention
-					};
-
-					DiscordMember staffMember = await e.Guild.GetMemberAsync(ticket.assignedStaffID);
-					await staffMember.SendMessageAsync(message);
-				}
-				catch (NotFoundException) { }
-				catch (UnauthorizedException) { }
+					Color = DiscordColor.Green,
+					Description = "A ticket you are assigned to has been updated: " + e.Channel.Mention
+				});
 			}
+			catch (NotFoundException) { }
+			catch (UnauthorizedException) { }
 		}
+	}
 
-		internal Task OnCommandError(CommandsNextExtension commandSystem, CommandErrorEventArgs e)
+	internal static async Task OnCommandError(SlashCommandsExtension commandSystem, SlashCommandErrorEventArgs e)
+	{
+		switch (e.Exception)
 		{
-			switch (e.Exception)
-			{
-				case CommandNotFoundException _:
-					return Task.CompletedTask;
-				case ChecksFailedException _:
+			case SlashExecutionChecksFailedException checksFailedException:
+				{
+					foreach (SlashCheckBaseAttribute attr in checksFailedException.FailedChecks)
 					{
-						foreach (CheckBaseAttribute attr in ((ChecksFailedException)e.Exception).FailedChecks)
-						{
-							DiscordEmbed error = new DiscordEmbedBuilder
-							{
-								Color = DiscordColor.Red,
-								Description = this.ParseFailedCheck(attr)
-							};
-							e.Context?.Channel?.SendMessageAsync(error);
-						}
-						return Task.CompletedTask;
-					}
-
-				default:
-					{
-						discordClient.Logger.Log(LogLevel.Error, $"Exception occured: {e.Exception.GetType()}: {e.Exception}");
-						DiscordEmbed error = new DiscordEmbedBuilder
+						await e.Context.Channel.SendMessageAsync(new DiscordEmbedBuilder
 						{
 							Color = DiscordColor.Red,
-							Description = "Internal error occured, please report this to the developer."
-						};
-						e.Context?.Channel?.SendMessageAsync(error);
-						return Task.CompletedTask;
+							Description = ParseFailedCheck(attr)
+						});
 					}
-			}
+					return;
+				}
+
+			case BadRequestException ex:
+				Logger.Error("Command exception occured:\n" + e.Exception);
+				Logger.Error("JSON Message: " + ex.JsonMessage);
+				return;
+
+			default:
+				{
+					Logger.Error("Exception occured: " + e.Exception.GetType() + ": " + e.Exception);
+					await e.Context.Channel.SendMessageAsync(new DiscordEmbedBuilder
+					{
+						Color = DiscordColor.Red,
+						Description = "Internal error occured, please report this to the developer."
+					});
+					return;
+				}
+		}
+	}
+
+	internal static async Task OnMemberAdded(DiscordClient client, GuildMemberAddEventArgs e)
+	{
+		if (!Database.TryGetOpenTickets(e.Member.Id, out List<Database.Ticket> ownTickets))
+		{
+			return;
 		}
 
-		internal async Task OnReactionAdded(DiscordClient client, MessageReactionAddEventArgs e)
+		foreach (Database.Ticket ticket in ownTickets)
 		{
-			if (e.Message.Id != Config.reactionMessage) return;
-
-			DiscordGuild guild = e.Message.Channel.Guild;
-			DiscordMember member = await guild.GetMemberAsync(e.User.Id);
-
-			if (!Config.HasPermission(member, "new") || Database.IsBlacklisted(member.Id)) return;
-			if (reactionTicketCooldowns.ContainsKey(member.Id))
+			try
 			{
-				if (reactionTicketCooldowns[member.Id] > DateTime.Now) return; // cooldown has not expired
-				else reactionTicketCooldowns.Remove(member.Id); // cooldown exists but has expired, delete it
-			}
-
-
-			DiscordChannel category = guild.GetChannel(Config.ticketCategory);
-			DiscordChannel ticketChannel = await guild.CreateChannelAsync("ticket", ChannelType.Text, category);
-
-			if (ticketChannel == null) return;
-
-			ulong staffID = 0;
-			if (Config.randomAssignment)
-			{
-				staffID = Database.GetRandomActiveStaff(0)?.userID ?? 0;
-			}
-
-			long id = Database.NewTicket(member.Id, staffID, ticketChannel.Id);
-			reactionTicketCooldowns.Add(member.Id, DateTime.Now.AddSeconds(10)); // add a cooldown which expires in 10 seconds
-			string ticketID = id.ToString("00000");
-
-			await ticketChannel.ModifyAsync(model => model.Name = "ticket-" + ticketID);
-			await ticketChannel.AddOverwriteAsync(member, Permissions.AccessChannels, Permissions.None);
-			await ticketChannel.SendMessageAsync("Hello, " + member.Mention + "!\n" + Config.welcomeMessage);
-
-			// Remove user's reaction
-			await e.Message.DeleteReactionAsync(e.Emoji, e.User);
-
-			// Refreshes the channel as changes were made to it above
-			ticketChannel = await SupportChild.GetClient().GetChannelAsync(ticketChannel.Id);
-
-			if (staffID != 0)
-			{
-				DiscordEmbed assignmentMessage = new DiscordEmbedBuilder
+				DiscordChannel channel = await client.GetChannelAsync(ticket.channelID);
+				if (channel?.GuildId == e.Guild.Id)
 				{
-					Color = DiscordColor.Green,
-					Description = "Ticket was randomly assigned to <@" + staffID + ">."
-				};
-				await ticketChannel.SendMessageAsync(assignmentMessage);
-
-				if (Config.assignmentNotifications)
-				{
-					DiscordEmbed message = new DiscordEmbedBuilder
+					await channel.SendMessageAsync(new DiscordEmbedBuilder
 					{
 						Color = DiscordColor.Green,
-						Description = "You have been randomly assigned to a newly opened support ticket: " +
-						              ticketChannel.Mention
-					};
-
-					try
-					{
-						DiscordMember staffMember = await guild.GetMemberAsync(staffID);
-						await staffMember.SendMessageAsync(message);
-					}
-					catch (NotFoundException)
-					{
-					}
-					catch (UnauthorizedException)
-					{
-					}
+						Description = "User '" + e.Member.Username + "#" + e.Member.Discriminator + "' has rejoined the server, and has been re-added to the ticket."
+					});
 				}
 			}
-
-			// Log it if the log channel exists
-			DiscordChannel logChannel = guild.GetChannel(Config.logChannel);
-			if (logChannel != null)
-			{
-				DiscordEmbed logMessage = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Green,
-					Description = "Ticket " + ticketChannel.Mention + " opened by " + member.Mention + ".\n",
-					Footer = new DiscordEmbedBuilder.EmbedFooter {Text = "Ticket " + ticketID}
-				};
-				await logChannel.SendMessageAsync(logMessage);
-			}
+			catch (Exception) { /* ignored */ }
 		}
+	}
 
-		internal async Task OnMemberAdded(DiscordClient client, GuildMemberAddEventArgs e)
+	internal static async Task OnMemberRemoved(DiscordClient client, GuildMemberRemoveEventArgs e)
+	{
+		if (Database.TryGetOpenTickets(e.Member.Id, out List<Database.Ticket> ownTickets))
 		{
-			if (!Database.TryGetOpenTickets(e.Member.Id, out List<Database.Ticket> ownTickets))
-			{
-				return;
-			}
-
 			foreach (Database.Ticket ticket in ownTickets)
 			{
 				try
@@ -226,82 +156,120 @@ namespace SupportChild
 					DiscordChannel channel = await client.GetChannelAsync(ticket.channelID);
 					if (channel?.GuildId == e.Guild.Id)
 					{
-						await channel.AddOverwriteAsync(e.Member, Permissions.AccessChannels, Permissions.None);
-						DiscordEmbed message = new DiscordEmbedBuilder()
-							.WithColor(DiscordColor.Green)
-							.WithDescription("User '" + e.Member.Username + "#" + e.Member.Discriminator + "' has rejoined the server, and has been re-added to the ticket.");
-						await channel.SendMessageAsync(message);
+						await channel.SendMessageAsync(new DiscordEmbedBuilder
+						{
+							Color = DiscordColor.Red,
+							Description = "User '" + e.Member.Username + "#" + e.Member.Discriminator + "' has left the server."
+						});
 					}
 				}
-				catch (Exception) { }
+				catch (Exception) { /* ignored */ }
 			}
 		}
 
-		internal async Task OnMemberRemoved(DiscordClient client, Guild​Member​Remove​Event​Args e)
+		if (Database.TryGetAssignedTickets(e.Member.Id, out List<Database.Ticket> assignedTickets) && Config.logChannel != 0)
 		{
-			if (Database.TryGetOpenTickets(e.Member.Id, out List<Database.Ticket> ownTickets))
+			DiscordChannel logChannel = await client.GetChannelAsync(Config.logChannel);
+			if (logChannel != null)
 			{
-				foreach(Database.Ticket ticket in ownTickets)
+				foreach (Database.Ticket ticket in assignedTickets)
 				{
 					try
 					{
 						DiscordChannel channel = await client.GetChannelAsync(ticket.channelID);
 						if (channel?.GuildId == e.Guild.Id)
 						{
-							DiscordEmbed message = new DiscordEmbedBuilder()
-								.WithColor(DiscordColor.Red)
-								.WithDescription("User '" + e.Member.Username + "#" + e.Member.Discriminator + "' has left the server.");
-							await channel.SendMessageAsync(message);
-						}
-					}
-					catch (Exception) { }
-				}
-			}
-
-			if (Database.TryGetAssignedTickets(e.Member.Id, out List<Database.Ticket> assignedTickets) && Config.logChannel != 0)
-			{
-				DiscordChannel logChannel = await client.GetChannelAsync(Config.logChannel);
-				if (logChannel != null)
-				{
-
-					foreach (Database.Ticket ticket in assignedTickets)
-					{
-						try
-						{
-							DiscordChannel channel = await client.GetChannelAsync(ticket.channelID);
-							if (channel?.GuildId == e.Guild.Id)
+							await logChannel.SendMessageAsync(new DiscordEmbedBuilder
 							{
-								DiscordEmbed message = new DiscordEmbedBuilder()
-									.WithColor(DiscordColor.Red)
-									.WithDescription("Assigned staff member '" + e.Member.Username + "#" + e.Member.Discriminator + "' has left the server: <#" + channel.Id + ">");
-								await logChannel.SendMessageAsync(message);
-							}
+								Color = DiscordColor.Red,
+								Description = "Assigned staff member '" + e.Member.Username + "#" + e.Member.Discriminator + "' has left the server: <#" + channel.Id + ">"
+							});
 						}
-						catch (Exception) { }
 					}
+					catch (Exception) { /* ignored */ }
 				}
 			}
 		}
+	}
 
-		private string ParseFailedCheck(CheckBaseAttribute attr)
+	internal static async Task OnComponentInteractionCreated(DiscordClient client, ComponentInteractionCreateEventArgs e)
+	{
+		try
 		{
-			switch (attr)
+			switch (e.Interaction.Data.ComponentType)
 			{
-				case CooldownAttribute _:
-					return "You cannot use do that so often!";
-				case RequireOwnerAttribute _:
-					return "Only the server owner can use that command!";
-				case RequirePermissionsAttribute _:
-					return "You don't have permission to do that!";
-				case RequireRolesAttribute _:
-					return "You do not have a required role!";
-				case RequireUserPermissionsAttribute _:
-					return "You don't have permission to do that!";
-				case RequireNsfwAttribute _:
-					return "This command can only be used in an NSFW channel!";
+				case ComponentType.Button:
+					switch (e.Id)
+					{
+						case "supportchild_closeconfirm":
+							await CloseCommand.OnConfirmed(e.Interaction);
+							return;
+						case { } when e.Id.StartsWith("supportchild_newcommandbutton"):
+							await NewCommand.OnCategorySelection(e.Interaction);
+							return;
+						case { } when e.Id.StartsWith("supportchild_newticketbutton"):
+							await CreateButtonPanelCommand.OnButtonUsed(e.Interaction);
+							return;
+						case "right":
+							return;
+						case "left":
+							return;
+						case "rightskip":
+							return;
+						case "leftskip":
+							return;
+						case "stop":
+							return;
+						default:
+							Logger.Warn("Unknown button press received! '" + e.Id + "'");
+							return;
+					}
+				case ComponentType.Select:
+					switch (e.Id)
+					{
+						case { } when e.Id.StartsWith("supportchild_newcommandselector"):
+							await NewCommand.OnCategorySelection(e.Interaction);
+							return;
+						case { } when e.Id.StartsWith("supportchild_newticketselector"):
+							await CreateSelectionBoxPanelCommand.OnSelectionMenuUsed(e.Interaction);
+							return;
+						default:
+							Logger.Warn("Unknown selection box option received! '" + e.Id + "'");
+							return;
+					}
+				case ComponentType.ActionRow:
+					Logger.Warn("Unknown action row received! '" + e.Id + "'");
+					return;
+				case ComponentType.FormInput:
+					Logger.Warn("Unknown form input received! '" + e.Id + "'");
+					return;
 				default:
-					return "Unknown Discord API error occured, please try again later.";
+					Logger.Warn("Unknown interaction type received! '" + e.Interaction.Data.ComponentType + "'");
+					break;
 			}
 		}
+		catch (DiscordException ex)
+		{
+			Logger.Error("Interaction Exception occurred: " + ex);
+			Logger.Error("JsomMessage: " + ex.JsonMessage);
+		}
+		catch (Exception ex)
+		{
+			Logger.Error("Interaction Exception occured: " + ex.GetType() + ": " + ex);
+		}
+	}
+
+	private static string ParseFailedCheck(SlashCheckBaseAttribute attr)
+	{
+		return attr switch
+		{
+			SlashRequireDirectMessageAttribute => "This command can only be used in direct messages!",
+			SlashRequireOwnerAttribute => "Only the server owner can use that command!",
+			SlashRequirePermissionsAttribute => "You don't have permission to do that!",
+			SlashRequireBotPermissionsAttribute => "The bot doesn't have the required permissions to do that!",
+			SlashRequireUserPermissionsAttribute => "You don't have permission to do that!",
+			SlashRequireGuildAttribute => "This command has to be used in a Discord server!",
+			_ => "Unknown Discord API error occured, please try again later."
+		};
 	}
 }

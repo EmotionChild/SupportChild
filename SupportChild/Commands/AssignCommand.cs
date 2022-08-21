@@ -1,135 +1,102 @@
-﻿using System.Linq;
+﻿using System;
 using System.Threading.Tasks;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
-using Microsoft.Extensions.Logging;
+using DSharpPlus.SlashCommands;
+using DSharpPlus.SlashCommands.Attributes;
 
-namespace SupportChild.Commands
+namespace SupportChild.Commands;
+
+public class AssignCommand : ApplicationCommandModule
 {
-	public class AssignCommand : BaseCommandModule
+	[SlashRequireGuild]
+	[SlashCommand("assign", "Assigns a staff member to this ticket.")]
+	public async Task OnExecute(InteractionContext command, [Option("User", "(Optional) User to assign to this ticket.")] DiscordUser user = null)
 	{
-		[Command("assign")]
-		[Description("Assigns a staff member to a ticket.")]
-		public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
+		DiscordMember member = null;
+		try
 		{
-			// Check if the user has permission to use this command.
-			if (!Config.HasPermission(command.Member, "assign"))
+			member = user == null ? command.Member : await command.Guild.GetMemberAsync(user.Id);
+
+			if (member == null)
 			{
-				DiscordEmbed error = new DiscordEmbedBuilder
+				await command.CreateResponseAsync(new DiscordEmbedBuilder
 				{
 					Color = DiscordColor.Red,
-					Description = "You do not have permission to use this command."
-				};
-				await command.RespondAsync(error);
-				command.Client.Logger.Log(LogLevel.Information, "User tried to use the assign command but did not have permission.");
+					Description = "Could not find that user in this server."
+				}, true);
 				return;
 			}
-
-			// Check if ticket exists in the database
-			if (!Database.TryGetOpenTicket(command.Channel.Id, out Database.Ticket ticket))
+		}
+		catch (Exception)
+		{
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "This channel is not a ticket."
-				};
-				await command.RespondAsync(error);
-				return;
-			}
+				Color = DiscordColor.Red,
+				Description = "Could not find that user in this server."
+			}, true);
+			return;
+		}
 
-			ulong staffID;
-			string[] parsedMessage = Utilities.ParseIDs(command.RawArgumentString);
-
-			if (!parsedMessage.Any())
+		// Check if ticket exists in the database
+		if (!Database.TryGetOpenTicket(command.Channel.Id, out Database.Ticket ticket))
+		{
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
-				staffID = command.Member.Id;
-			}
-			else if (!ulong.TryParse(parsedMessage[0], out staffID))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "Invalid ID/Mention. (Could not convert to numerical)"
-				};
-				await command.RespondAsync(error);
-				return;
-			}
+				Color = DiscordColor.Red,
+				Description = "This channel is not a ticket."
+			}, true);
+			return;
+		}
 
-			DiscordMember staffMember = null;
+		if (!Database.IsStaff(member.Id))
+		{
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
+			{
+				Color = DiscordColor.Red,
+				Description = "Error: User is not registered as staff."
+			}, true);
+			return;
+		}
+
+		if (!Database.AssignStaff(ticket, member.Id))
+		{
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
+			{
+				Color = DiscordColor.Red,
+				Description = "Error: Failed to assign " + member.Mention + " to ticket."
+			}, true);
+			return;
+		}
+
+		await command.CreateResponseAsync(new DiscordEmbedBuilder
+		{
+			Color = DiscordColor.Green,
+			Description = "Assigned " + member.Mention + " to ticket."
+		});
+
+		if (Config.assignmentNotifications)
+		{
 			try
 			{
-				staffMember = await command.Guild.GetMemberAsync(staffID);
-			}
-			catch (NotFoundException) {  }
-
-			if (staffMember == null)
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "Error: Could not find user."
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			if (!Database.IsStaff(staffMember.Id))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "Error: User is not registered as staff."
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			if (!Database.AssignStaff(ticket, staffID))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "Error: Failed to assign " + staffMember.Mention + " to ticket."
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			DiscordEmbed feedback = new DiscordEmbedBuilder
-			{
-				Color = DiscordColor.Green,
-				Description = "Assigned " + staffMember.Mention + " to ticket."
-			};
-			await command.RespondAsync(feedback);
-
-			if (Config.assignmentNotifications)
-			{
-				try
-				{
-					DiscordEmbed message = new DiscordEmbedBuilder
-					{
-						Color = DiscordColor.Green,
-						Description = "You have been assigned to a support ticket: " + command.Channel.Mention
-					};
-					await staffMember.SendMessageAsync(message);
-				}
-				catch (UnauthorizedException) {}
-
-			}
-
-			// Log it if the log channel exists
-			DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
-			if (logChannel != null)
-			{
-				DiscordEmbed logMessage = new DiscordEmbedBuilder
+				await member.SendMessageAsync(new DiscordEmbedBuilder
 				{
 					Color = DiscordColor.Green,
-					Description = staffMember.Mention + " was assigned to " + command.Channel.Mention + " by " + command.Member.Mention + "."
-				};
-				await logChannel.SendMessageAsync(logMessage);
+					Description = "You have been assigned to a support ticket: " + command.Channel.Mention
+				});
 			}
+			catch (UnauthorizedException) { }
+		}
+
+		// Log it if the log channel exists
+		DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
+		if (logChannel != null)
+		{
+			await logChannel.SendMessageAsync(new DiscordEmbedBuilder
+			{
+				Color = DiscordColor.Green,
+				Description = member.Mention + " was assigned to " + command.Channel.Mention + " by " + command.Member.Mention + "."
+			});
 		}
 	}
 }

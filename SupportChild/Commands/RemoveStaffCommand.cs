@@ -1,104 +1,49 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
+﻿using System.Threading.Tasks;
 using DSharpPlus.Entities;
-using Microsoft.Extensions.Logging;
+using DSharpPlus.SlashCommands;
+using DSharpPlus.SlashCommands.Attributes;
 using MySql.Data.MySqlClient;
 
-namespace SupportChild.Commands
+namespace SupportChild.Commands;
+
+public class RemoveStaffCommand : ApplicationCommandModule
 {
-	public class RemoveStaffCommand : BaseCommandModule
+	[SlashRequireGuild]
+	[SlashCommand("removestaff", "Removes a staff member.")]
+	public async Task OnExecute(InteractionContext command, [Option("User", "User to remove from staff.")] DiscordUser user)
 	{
-		[Command("removestaff")]
-		[Cooldown(1, 5, CooldownBucketType.User)]
-		public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
+		if (!Database.IsStaff(user.Id))
 		{
-			// Check if the user has permission to use this command.
-			if (!Config.HasPermission(command.Member, "removestaff"))
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "You do not have permission to use this command."
-				};
-				await command.RespondAsync(error);
-				command.Client.Logger.Log(LogLevel.Information, "User tried to use the removestaff command but did not have permission.");
-				return;
-			}
+				Color = DiscordColor.Red,
+				Description = "User is already not registered as staff."
+			}, true);
+			return;
+		}
 
-			ulong userID;
-			string[] parsedMessage = Utilities.ParseIDs(command.RawArgumentString);
+		await using MySqlConnection c = Database.GetConnection();
+		c.Open();
+		MySqlCommand deletion = new MySqlCommand(@"DELETE FROM staff WHERE user_id=@user_id", c);
+		deletion.Parameters.AddWithValue("@user_id", user.Id);
+		deletion.Prepare();
+		deletion.ExecuteNonQuery();
 
-			if (!parsedMessage.Any())
+		await command.CreateResponseAsync(new DiscordEmbedBuilder
+		{
+			Color = DiscordColor.Green,
+			Description = "User was removed from staff."
+		}, true);
+
+		// Log it if the log channel exists
+		DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
+		if (logChannel != null)
+		{
+			await logChannel.SendMessageAsync(new DiscordEmbedBuilder
 			{
-				userID = command.Member.Id;
-			}
-			else if (!ulong.TryParse(parsedMessage[0], out userID))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "Invalid ID/Mention. (Could not convert to numerical)"
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			try
-			{
-				await command.Client.GetUserAsync(userID);
-			}
-			catch (Exception)
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "Invalid ID/Mention. (Could not find user on Discord)"
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			if (!Database.IsStaff(userID))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "User is already not registered as staff."
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			using (MySqlConnection c = Database.GetConnection())
-			{
-				c.Open();
-				MySqlCommand deletion = new MySqlCommand(@"DELETE FROM staff WHERE user_id=@user_id", c);
-				deletion.Parameters.AddWithValue("@user_id", userID);
-				deletion.Prepare();
-				deletion.ExecuteNonQuery();
-
-				DiscordEmbed message = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Green,
-					Description = "User was removed from staff."
-				};
-				await command.RespondAsync(message);
-
-				// Log it if the log channel exists
-				DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
-				if (logChannel != null)
-				{
-					DiscordEmbed logMessage = new DiscordEmbedBuilder
-					{
-						Color = DiscordColor.Green,
-						Description = "User was removed from staff.\n",
-					};
-					await logChannel.SendMessageAsync(logMessage);
-				}
-			}
+				Color = DiscordColor.Green,
+				Description = "User was removed from staff.\n"
+			});
 		}
 	}
 }
