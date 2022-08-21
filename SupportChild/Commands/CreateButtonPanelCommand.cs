@@ -36,7 +36,7 @@ public class CreateButtonPanelCommand : ApplicationCommandModule
 
 			for (; nrOfButtons < 5 * (nrOfButtonRows + 1) && nrOfButtons < verifiedCategories.Count; nrOfButtons++)
 			{
-				buttonRow.Add(new DiscordButtonComponent(ButtonStyle.Primary, "supportboi_newticketbutton " + verifiedCategories[nrOfButtons].id, verifiedCategories[nrOfButtons].name));
+				buttonRow.Add(new DiscordButtonComponent(ButtonStyle.Primary, "supportchild_newticketbutton " + verifiedCategories[nrOfButtons].id, verifiedCategories[nrOfButtons].name));
 			}
 			builder.AddComponents(buttonRow);
 		}
@@ -53,9 +53,9 @@ public class CreateButtonPanelCommand : ApplicationCommandModule
 	{
 		await interaction.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, new DiscordInteractionResponseBuilder().AsEphemeral());
 
-		if (!ulong.TryParse(interaction.Data.CustomId.Replace("supportboi_newticketbutton ", ""), out ulong categoryID) || categoryID == 0)
+		if (!ulong.TryParse(interaction.Data.CustomId.Replace("supportchild_newticketbutton ", ""), out ulong categoryID) || categoryID == 0)
 		{
-			Logger.Warn("Invalid ID: " + interaction.Data.CustomId.Replace("supportboi_newticketbutton ", ""));
+			Logger.Warn("Invalid ID: " + interaction.Data.CustomId.Replace("supportchild_newticketbutton ", ""));
 			return;
 		}
 

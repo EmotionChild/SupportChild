@@ -15,7 +15,7 @@ public class StatusCommand : ApplicationCommandModule
 		long closedTickets = Database.GetNumberOfClosedTickets();
 
 		DiscordEmbed botInfo = new DiscordEmbedBuilder()
-			.WithAuthor("KarlofDuty/SupportBoi @ GitHub", "https://github.com/EmotionChild/SupportChild", "https://cdn.discordapp.com/attachments/765441543100170271/914327948667011132/Ellie_Concept_2_transparent_ver.png")
+			.WithAuthor("KarlofDuty/supportchild @ GitHub", "https://github.com/EmotionChild/SupportChild", "https://cdn.discordapp.com/attachments/765441543100170271/914327948667011132/Ellie_Concept_2_transparent_ver.png")
 			.WithTitle("Bot information")
 			.WithColor(DiscordColor.Cyan)
 			.AddField("Version:", SupportChild.GetVersion())

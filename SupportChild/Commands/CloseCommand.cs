@@ -33,7 +33,7 @@ public class CloseCommand : ApplicationCommandModule
 				Color = DiscordColor.Cyan,
 				Description = "Are you sure you wish to close this ticket? You cannot re-open it again later."
 			})
-			.AddComponents(new DiscordButtonComponent(ButtonStyle.Danger, "supportboi_closeconfirm", "Confirm"));
+			.AddComponents(new DiscordButtonComponent(ButtonStyle.Danger, "supportchild_closeconfirm", "Confirm"));
 
 
 		await command.CreateResponseAsync(confirmation);
