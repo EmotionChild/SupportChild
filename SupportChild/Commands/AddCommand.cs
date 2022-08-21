@@ -1,107 +1,82 @@
 ﻿using System;
 using System.Threading.Tasks;
 using DSharpPlus;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
-using Microsoft.Extensions.Logging;
+using DSharpPlus.SlashCommands;
+using DSharpPlus.SlashCommands.Attributes;
 
-namespace SupportChild.Commands
+namespace SupportChild.Commands;
+
+public class AddCommand : ApplicationCommandModule
 {
-	public class AddCommand : BaseCommandModule
+	[SlashRequireGuild]
+	[SlashCommand("add", "Adds a user to a ticket")]
+	public async Task OnExecute(InteractionContext command, [Option("User", "User to add to ticket.")] DiscordUser user)
 	{
-		[Command("add")]
-		[Description("Adds a user to a ticket.")]
-		public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
+		// Check if ticket exists in the database
+		if (!Database.IsOpenTicket(command.Channel.Id))
 		{
-			// Check if the user has permission to use this command.
-			if (!Config.HasPermission(command.Member, "add"))
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
-				DiscordEmbed error = new DiscordEmbedBuilder
+				Color = DiscordColor.Red,
+				Description = "This channel is not a ticket."
+			}, true);
+			return;
+		}
+
+		DiscordMember member;
+		try
+		{
+			member = (user == null ? command.Member : await command.Guild.GetMemberAsync(user.Id));
+
+			if (member == null)
+			{
+				await command.CreateResponseAsync(new DiscordEmbedBuilder
 				{
 					Color = DiscordColor.Red,
-					Description = "You do not have permission to use this command."
-				};
-				await command.RespondAsync(error);
-				command.Client.Logger.Log(LogLevel.Information, "User tried to use the add command but did not have permission.");
+					Description = "Could not find that user in this server."
+				}, true);
 				return;
 			}
-
-			// Check if ticket exists in the database
-			if (!Database.IsOpenTicket(command.Channel.Id))
+		}
+		catch (Exception)
+		{
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "This channel is not a ticket."
-				};
-				await command.RespondAsync(error);
-				return;
-			}
+				Color = DiscordColor.Red,
+				Description = "Could not find that user in this server."
+			}, true);
+			return;
+		}
 
-			string[] parsedArgs = Utilities.ParseIDs(command.RawArgumentString);
-			foreach (string parsedArg in parsedArgs)
+		try
+		{
+			await command.Channel.AddOverwriteAsync(member, Permissions.AccessChannels);
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
-				if (!ulong.TryParse(parsedArg, out ulong userID))
-				{
-					DiscordEmbed error = new DiscordEmbedBuilder
-					{
-						Color = DiscordColor.Red,
-						Description = "Invalid ID/Mention. (Could not convert to numerical)"
-					};
-					await command.RespondAsync(error);
-					continue;
-				}
+				Color = DiscordColor.Green,
+				Description = "Added " + member.Mention + " to ticket."
+			});
 
-				DiscordMember mentionedMember;
-				try
+			// Log it if the log channel exists
+			DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
+			if (logChannel != null)
+			{
+				await logChannel.SendMessageAsync(new DiscordEmbedBuilder
 				{
-					mentionedMember = await command.Guild.GetMemberAsync(userID);
-				}
-				catch (Exception)
-				{
-					DiscordEmbed error = new DiscordEmbedBuilder
-					{
-						Color = DiscordColor.Red,
-						Description = "Invalid ID/Mention. (Could not find user on this server)"
-					};
-					await command.RespondAsync(error);
-					continue;
-				}
-
-				try
-				{
-					await command.Channel.AddOverwriteAsync(mentionedMember, Permissions.AccessChannels, Permissions.None);
-					DiscordEmbed message = new DiscordEmbedBuilder
-					{
-						Color = DiscordColor.Green,
-						Description = "Added " + mentionedMember.Mention + " to ticket."
-					};
-					await command.RespondAsync(message);
-
-					// Log it if the log channel exists
-					DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
-					if (logChannel != null)
-					{
-						DiscordEmbed logMessage = new DiscordEmbedBuilder
-						{
-							Color = DiscordColor.Green,
-							Description = mentionedMember.Mention + " was added to " + command.Channel.Mention +
-							              " by " + command.Member.Mention + "."
-						};
-						await logChannel.SendMessageAsync(logMessage);
-					}
-				}
-				catch (Exception)
-				{
-					DiscordEmbed message = new DiscordEmbedBuilder
-					{
-						Color = DiscordColor.Red,
-						Description = "Could not add <@" + parsedArg + "> to ticket, unknown error occured."
-					};
-					await command.RespondAsync(message);
-				}
+					Color = DiscordColor.Green,
+					Description = member.Mention + " was added to " + command.Channel.Mention +
+								  " by " + command.Member.Mention + "."
+				});
 			}
+		}
+		catch (Exception)
+		{
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
+			{
+				Color = DiscordColor.Red,
+				Description = "Could not add " + member.Mention + " to ticket, unknown error occured."
+			}, true);
 		}
 	}
 }

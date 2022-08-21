@@ -1,71 +1,52 @@
 ﻿using System.Threading.Tasks;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
-using Microsoft.Extensions.Logging;
+using DSharpPlus.SlashCommands;
+using DSharpPlus.SlashCommands.Attributes;
 
-namespace SupportChild.Commands
+namespace SupportChild.Commands;
+
+public class UnassignCommand : ApplicationCommandModule
 {
-	public class UnassignCommand : BaseCommandModule
+	[SlashRequireGuild]
+	[SlashCommand("unassign", "Unassigns a staff member from a ticket.")]
+	public async Task OnExecute(InteractionContext command)
 	{
-		[Command("unassign")]
-		[Description("Unassigns a staff member from a ticket.")]
-		public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
+		// Check if ticket exists in the database
+		if (!Database.TryGetOpenTicket(command.Channel.Id, out Database.Ticket ticket))
 		{
-			// Check if the user has permission to use this command.
-			if (!Config.HasPermission(command.Member, "unassign"))
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "You do not have permission to use this command."
-				};
-				await command.RespondAsync(error);
-				command.Client.Logger.Log(LogLevel.Information, "User tried to use the unassign command but did not have permission.");
-				return;
-			}
+				Color = DiscordColor.Red,
+				Description = "This channel is not a ticket."
+			}, true);
+			return;
+		}
 
-			// Check if ticket exists in the database
-			if (!Database.TryGetOpenTicket(command.Channel.Id, out Database.Ticket ticket))
+		if (!Database.UnassignStaff(ticket))
+		{
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "This channel is not a ticket."
-				};
-				await command.RespondAsync(error);
-				return;
-			}
+				Color = DiscordColor.Red,
+				Description = "Error: Failed to unassign staff member from ticket."
+			}, true);
+			return;
+		}
 
-			if (!Database.UnassignStaff(ticket))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "Error: Failed to unassign staff from ticket."
-				};
-				await command.RespondAsync(error);
-				return;
-			}
+		await command.CreateResponseAsync(new DiscordEmbedBuilder
+		{
+			Color = DiscordColor.Green,
+			Description = "Unassigned staff member from ticket."
+		});
 
-			DiscordEmbed message = new DiscordEmbedBuilder
+		// Log it if the log channel exists
+		DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
+		if (logChannel != null)
+		{
+			await logChannel.SendMessageAsync(new DiscordEmbedBuilder
 			{
 				Color = DiscordColor.Green,
-				Description = "Unassigned staff from ticket."
-			};
-			await command.RespondAsync(message);
-
-			// Log it if the log channel exists
-			DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
-			if (logChannel != null)
-			{
-				DiscordEmbed logMessage = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Green,
-					Description = "Staff was unassigned from " + command.Channel.Mention + " by " + command.Member.Mention + "."
-				};
-				await logChannel.SendMessageAsync(logMessage);
-			}
+				Description = "Staff member was unassigned from " + command.Channel.Mention + " by " + command.Member.Mention + "."
+			});
 		}
 	}
 }

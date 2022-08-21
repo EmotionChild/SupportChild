@@ -1,96 +1,67 @@
 ﻿using System;
-using System.Linq;
 using System.Threading.Tasks;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
-using Microsoft.Extensions.Logging;
+using DSharpPlus.SlashCommands;
+using DSharpPlus.SlashCommands.Attributes;
 using MySql.Data.MySqlClient;
 
-namespace SupportChild.Commands
+namespace SupportChild.Commands;
+
+public class AddStaffCommand : ApplicationCommandModule
 {
-	public class AddStaffCommand : BaseCommandModule
+	[SlashRequireGuild]
+	[SlashCommand("addstaff", "Adds a new staff member.")]
+	public async Task OnExecute(InteractionContext command, [Option("User", "User to add to staff.")] DiscordUser user)
 	{
-		[Command("addstaff")]
-		[Cooldown(1, 5, CooldownBucketType.User)]
-		public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
+		DiscordMember staffMember = null;
+		try
 		{
-			// Check if the user has permission to use this command.
-			if (!Config.HasPermission(command.Member, "addstaff"))
+			staffMember = user == null ? command.Member : await command.Guild.GetMemberAsync(user.Id);
+
+			if (staffMember == null)
 			{
-				DiscordEmbed error = new DiscordEmbedBuilder
+				await command.CreateResponseAsync(new DiscordEmbedBuilder
 				{
 					Color = DiscordColor.Red,
-					Description = "You do not have permission to use this command."
-				};
-				await command.RespondAsync(error);
-				command.Client.Logger.Log(LogLevel.Information, "User tried to use the addstaff command but did not have permission.");
+					Description = "Could not find that user in this server."
+				}, true);
 				return;
 			}
-
-			ulong userID;
-			string[] parsedArgs = Utilities.ParseIDs(commandArgs);
-
-			if (!parsedArgs.Any())
+		}
+		catch (Exception)
+		{
+			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
-				userID = command.Member.Id;
-			}
-			else if (!ulong.TryParse(parsedArgs[0], out userID))
+				Color = DiscordColor.Red,
+				Description = "Could not find that user in this server."
+			}, true);
+			return;
+		}
+
+		await using MySqlConnection c = Database.GetConnection();
+		MySqlCommand cmd = Database.IsStaff(staffMember.Id) ? new MySqlCommand(@"UPDATE staff SET name = @name WHERE user_id = @user_id", c) : new MySqlCommand(@"INSERT INTO staff (user_id, name) VALUES (@user_id, @name);", c);
+
+		c.Open();
+		cmd.Parameters.AddWithValue("@user_id", staffMember.Id);
+		cmd.Parameters.AddWithValue("@name", staffMember.DisplayName);
+		cmd.ExecuteNonQuery();
+		cmd.Dispose();
+
+		await command.CreateResponseAsync(new DiscordEmbedBuilder
+		{
+			Color = DiscordColor.Green,
+			Description = staffMember.Mention + " was added to staff."
+		});
+
+		// Log it if the log channel exists
+		DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
+		if (logChannel != null)
+		{
+			await logChannel.SendMessageAsync(new DiscordEmbedBuilder
 			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "Invalid ID/Mention. (Could not convert to numerical)"
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			DiscordMember member;
-			try
-			{
-				member = await command.Guild.GetMemberAsync(userID);
-			}
-			catch (Exception)
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Red,
-					Description = "Invalid ID/Mention. (Could not find user on this server)"
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			using (MySqlConnection c = Database.GetConnection())
-			{
-				MySqlCommand cmd = Database.IsStaff(userID) ? new MySqlCommand(@"UPDATE staff SET name = @name WHERE user_id = @user_id", c) : new MySqlCommand(@"INSERT INTO staff (user_id, name) VALUES (@user_id, @name);", c);
-
-				c.Open();
-				cmd.Parameters.AddWithValue("@user_id", userID);
-				cmd.Parameters.AddWithValue("@name", member.DisplayName);
-				cmd.ExecuteNonQuery();
-				cmd.Dispose();
-
-				DiscordEmbed message = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Green,
-					Description = member.Mention + " was added to staff."
-				};
-				await command.RespondAsync(message);
-
-				// Log it if the log channel exists
-				DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
-				if (logChannel != null)
-				{
-					DiscordEmbed logMessage = new DiscordEmbedBuilder
-					{
-						Color = DiscordColor.Green,
-						Description = member.Mention + " was added to staff.\n",
-					};
-					await logChannel.SendMessageAsync(logMessage);
-				}
-			}
+				Color = DiscordColor.Green,
+				Description = staffMember.Mention + " was added to staff.\n"
+			});
 		}
 	}
 }

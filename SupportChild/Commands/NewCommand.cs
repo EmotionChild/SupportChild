@@ -1,150 +1,276 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
-using Microsoft.Extensions.Logging;
+using DSharpPlus.SlashCommands;
+using DSharpPlus.SlashCommands.Attributes;
 
-namespace SupportChild.Commands
+namespace SupportChild.Commands;
+
+public class NewCommand : ApplicationCommandModule
 {
-	public class NewCommand : BaseCommandModule
+	[SlashRequireGuild]
+	[SlashCommand("new", "Opens a new ticket.")]
+	public async Task OnExecute(InteractionContext command)
 	{
-		[Command("new")]
-		[Cooldown(1, 5, CooldownBucketType.User)]
-		public async Task OnExecute(CommandContext command, [RemainingText] string commandArgs)
+		List<Database.Category> verifiedCategories = await Utilities.GetVerifiedChannels();
+		switch (verifiedCategories.Count)
 		{
-			// Check if the user has permission to use this command.
-			if (!Config.HasPermission(command.Member, "new"))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
+			case 0:
+				await command.CreateResponseAsync(new DiscordEmbedBuilder
 				{
 					Color = DiscordColor.Red,
-					Description = "You do not have permission to use this command."
-				};
-				await command.RespondAsync(error);
-				command.Client.Logger.Log(LogLevel.Information, "User tried to use the new command but did not have permission.");
+					Description = "Error: No registered categories found."
+				}, true);
 				return;
-			}
+			case 1:
+				await command.DeferAsync(true);
+				(bool success, string message) = await OpenNewTicket(command.User.Id, command.Channel.Id, verifiedCategories[0].id);
 
-			// Check if user is blacklisted
-			if (Database.IsBlacklisted(command.User.Id))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
+				if (success)
 				{
-					Color = DiscordColor.Red,
-					Description = "You are banned from opening tickets."
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			if (Database.IsOpenTicket(command.Channel.Id))
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
+					await command.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(new DiscordEmbedBuilder
+					{
+						Color = DiscordColor.Green,
+						Description = message
+					}).AsEphemeral());
+				}
+				else
 				{
-					Color = DiscordColor.Red,
-					Description = "You cannot use this command in a ticket channel."
-				};
-				await command.RespondAsync(error);
+					await command.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(new DiscordEmbedBuilder
+					{
+						Color = DiscordColor.Red,
+						Description = message
+					}).AsEphemeral());
+				}
 				return;
-			}
-
-			DiscordChannel category = command.Guild.GetChannel(Config.ticketCategory);
-			DiscordChannel ticketChannel;
-
-			try
-			{
-				ticketChannel = await command.Guild.CreateChannelAsync("ticket", ChannelType.Text, category);
-			}
-			catch (Exception)
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
+			default:
+				if (Config.newCommandUsesSelector)
 				{
-					Color = DiscordColor.Red,
-					Description = "Error occured while creating ticket, " + command.Member.Mention +
-					              "!\nIs the channel limit reached in the server or ticket category?"
-				};
-				await command.RespondAsync(error);
-				return;
-			}
-
-			if (ticketChannel == null)
-			{
-				DiscordEmbed error = new DiscordEmbedBuilder
+					await CreateSelector(command, verifiedCategories);
+				}
+				else
 				{
-					Color = DiscordColor.Red,
-					Description = "Error occured while creating ticket, " + command.Member.Mention +
-					              "!\nIs the channel limit reached in the server or ticket category?"
-				};
-				await command.RespondAsync(error);
+					await CreateButtons(command, verifiedCategories);
+				}
 				return;
-			}
+		}
+	}
 
-			ulong staffID = 0;
-			if (Config.randomAssignment)
+	public static async Task CreateButtons(InteractionContext command, List<Database.Category> verifiedCategories)
+	{
+		DiscordInteractionResponseBuilder builder = new DiscordInteractionResponseBuilder().WithContent(" ");
+		int nrOfButtons = 0;
+		for (int nrOfButtonRows = 0; nrOfButtonRows < 5 && nrOfButtons < verifiedCategories.Count; nrOfButtonRows++)
+		{
+			List<DiscordButtonComponent> buttonRow = new List<DiscordButtonComponent>();
+
+			for (; nrOfButtons < 5 * (nrOfButtonRows + 1) && nrOfButtons < verifiedCategories.Count; nrOfButtons++)
 			{
-				staffID = Database.GetRandomActiveStaff(0)?.userID ?? 0;
+				buttonRow.Add(new DiscordButtonComponent(ButtonStyle.Primary, "supportboi_newcommandbutton " + verifiedCategories[nrOfButtons].id, verifiedCategories[nrOfButtons].name));
 			}
+			builder.AddComponents(buttonRow);
+		}
 
-			long id = Database.NewTicket(command.Member.Id, staffID, ticketChannel.Id);
-			string ticketID = id.ToString("00000");
+		await command.CreateResponseAsync(builder.AsEphemeral());
+	}
+
+	public static async Task CreateSelector(InteractionContext command, List<Database.Category> verifiedCategories)
+	{
+		verifiedCategories = verifiedCategories.OrderBy(x => x.name).ToList();
+		List<DiscordSelectComponent> selectionComponents = new List<DiscordSelectComponent>();
+		int selectionOptions = 0;
+		for (int selectionBoxes = 0; selectionBoxes < 5 && selectionOptions < verifiedCategories.Count; selectionBoxes++)
+		{
+			List<DiscordSelectComponentOption> categoryOptions = new List<DiscordSelectComponentOption>();
+
+			for (; selectionOptions < 25 * (selectionBoxes + 1) && selectionOptions < verifiedCategories.Count; selectionOptions++)
+			{
+				categoryOptions.Add(new DiscordSelectComponentOption(verifiedCategories[selectionOptions].name, verifiedCategories[selectionOptions].id.ToString()));
+			}
+			selectionComponents.Add(new DiscordSelectComponent("supportboi_newcommandselector" + selectionBoxes, "Open new ticket...", categoryOptions, false, 0, 1));
+		}
+
+		await command.CreateResponseAsync(new DiscordInteractionResponseBuilder().AddComponents(selectionComponents).AsEphemeral());
+	}
+
+	public static async Task OnCategorySelection(DiscordInteraction interaction)
+	{
+		string stringID;
+		switch (interaction.Data.ComponentType)
+		{
+			case ComponentType.Button:
+				stringID = interaction.Data.CustomId.Replace("supportboi_newcommandbutton ", "");
+				break;
+			case ComponentType.Select:
+				if (interaction.Data.Values == null || interaction.Data.Values.Length <= 0) return;
+				stringID = interaction.Data.Values[0];
+				break;
+
+			case ComponentType.ActionRow:
+			case ComponentType.FormInput:
+			default:
+				return;
+		}
+
+		if (!ulong.TryParse(stringID, out ulong categoryID) || categoryID == 0) return;
+
+		await interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate, new DiscordInteractionResponseBuilder().AsEphemeral());
+
+		(bool success, string message) = await OpenNewTicket(interaction.User.Id, interaction.ChannelId, categoryID);
+
+		if (success)
+		{
+			await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().AddEmbed(new DiscordEmbedBuilder
+			{
+				Color = DiscordColor.Green,
+				Description = message
+			}));
+		}
+		else
+		{
+			await interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder().AddEmbed(new DiscordEmbedBuilder
+			{
+				Color = DiscordColor.Red,
+				Description = message
+			}));
+		}
+	}
+
+	public static async Task<(bool, string)> OpenNewTicket(ulong userID, ulong commandChannelID, ulong categoryID)
+	{
+		// Check if user is blacklisted
+		if (Database.IsBlacklisted(userID))
+		{
+			return (false, "You are banned from opening tickets.");
+		}
+
+		if (Database.IsOpenTicket(commandChannelID))
+		{
+			return (false, "You cannot use this command in a ticket channel.");
+		}
+
+		if (!Database.IsStaff(userID) && Database.TryGetOpenTickets(userID, out List<Database.Ticket> ownTickets) && ownTickets.Count >= Config.ticketLimit)
+		{
+			return (false, "You have reached the limit for maximum open tickets.");
+		}
+
+		DiscordChannel category = null;
+		try
+		{
+			category = await SupportChild.discordClient.GetChannelAsync(categoryID);
+		}
+		catch (Exception) { /*ignored*/ }
+
+		if (category == null)
+		{
+			return (false, "Error: Could not find the category to place the ticket in.");
+		}
+
+		DiscordMember member = null;
+		try
+		{
+			member = await category.Guild.GetMemberAsync(userID);
+		}
+		catch (Exception) { /*ignored*/ }
+
+		if (member == null)
+		{
+			return (false, "Error: Could not find you on the Discord server.");
+		}
+
+		DiscordChannel ticketChannel = null;
+
+		try
+		{
+			ticketChannel = await category.Guild.CreateChannelAsync("ticket", ChannelType.Text, category);
+		}
+		catch (Exception) { /* ignored */ }
+
+		if (ticketChannel == null)
+		{
+			return (false, "Error occured while creating ticket, " + member.Mention +
+						   "!\nIs the channel limit reached in the server or ticket category?");
+		}
+
+		ulong staffID = 0;
+		if (Config.randomAssignment)
+		{
+			staffID = Database.GetRandomActiveStaff(0)?.userID ?? 0;
+		}
+
+		long id = Database.NewTicket(member.Id, staffID, ticketChannel.Id);
+		string ticketID = id.ToString("00000");
+
+		try
+		{
 			await ticketChannel.ModifyAsync(modifiedAttributes => modifiedAttributes.Name = "ticket-" + ticketID);
-			await ticketChannel.AddOverwriteAsync(command.Member, Permissions.AccessChannels, Permissions.None);
+		}
+		catch (DiscordException e)
+		{
+			Logger.Error("Exception occurred trying to modify channel: " + e);
+			Logger.Error("JsomMessage: " + e.JsonMessage);
+		}
 
-			await ticketChannel.SendMessageAsync("Hello, " + command.Member.Mention + "!\n" + Config.welcomeMessage);
+		try
+		{
+			await ticketChannel.AddOverwriteAsync(member, Permissions.AccessChannels);
+		}
+		catch (DiscordException e)
+		{
+			Logger.Error("Exception occurred trying to add channel permissions: " + e);
+			Logger.Error("JsomMessage: " + e.JsonMessage);
+		}
 
-			// Refreshes the channel as changes were made to it above
-			ticketChannel = command.Guild.GetChannel(ticketChannel.Id);
+		await ticketChannel.SendMessageAsync("Hello, " + member.Mention + "!\n" + Config.welcomeMessage);
 
-			if (staffID != 0)
+		// Refreshes the channel as changes were made to it above
+		ticketChannel = await SupportChild.discordClient.GetChannelAsync(ticketChannel.Id);
+
+		if (staffID != 0)
+		{
+			await ticketChannel.SendMessageAsync(new DiscordEmbedBuilder
 			{
-				DiscordEmbed assignmentMessage = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Green,
-					Description = "Ticket was randomly assigned to <@" + staffID + ">."
-				};
-				await ticketChannel.SendMessageAsync(assignmentMessage);
+				Color = DiscordColor.Green,
+				Description = "Ticket was randomly assigned to <@" + staffID + ">."
+			});
 
-				if (Config.assignmentNotifications)
+			if (Config.assignmentNotifications)
+			{
+				try
 				{
-					DiscordEmbed message = new DiscordEmbedBuilder
+					DiscordMember staffMember = await category.Guild.GetMemberAsync(staffID);
+					await staffMember.SendMessageAsync(new DiscordEmbedBuilder
 					{
 						Color = DiscordColor.Green,
 						Description = "You have been randomly assigned to a newly opened support ticket: " +
-						              ticketChannel.Mention
-					};
-
-					try
-					{
-						DiscordMember staffMember = await command.Guild.GetMemberAsync(staffID);
-						await staffMember.SendMessageAsync(message);
-					}
-					catch (NotFoundException) {}
-					catch (UnauthorizedException) {}
+									  ticketChannel.Mention
+					});
+				}
+				catch (DiscordException e)
+				{
+					Logger.Error("Exception occurred assign random staff member: " + e);
+					Logger.Error("JsomMessage: " + e.JsonMessage);
 				}
 			}
+		}
 
-			DiscordEmbed response = new DiscordEmbedBuilder
+		// Log it if the log channel exists
+		DiscordChannel logChannel = category.Guild.GetChannel(Config.logChannel);
+		if (logChannel != null)
+		{
+			DiscordEmbed logMessage = new DiscordEmbedBuilder
 			{
 				Color = DiscordColor.Green,
-				Description = "Ticket opened, " + command.Member.Mention + "!\n" + ticketChannel.Mention
+				Description = "Ticket " + ticketChannel.Mention + " opened by " + member.Mention + ".\n",
+				Footer = new DiscordEmbedBuilder.EmbedFooter { Text = "Ticket " + ticketID }
 			};
-			await command.RespondAsync(response);
-
-			// Log it if the log channel exists
-			DiscordChannel logChannel = command.Guild.GetChannel(Config.logChannel);
-			if (logChannel != null)
-			{
-				DiscordEmbed logMessage = new DiscordEmbedBuilder
-				{
-					Color = DiscordColor.Green,
-					Description = "Ticket " + ticketChannel.Mention + " opened by " + command.Member.Mention + ".\n",
-					Footer = new DiscordEmbedBuilder.EmbedFooter {Text = "Ticket " + ticketID}
-				};
-				await logChannel.SendMessageAsync(logMessage);
-			}
+			await logChannel.SendMessageAsync(logMessage);
 		}
+
+		return (true, "Ticket opened, " + member.Mention + "!\n" + ticketChannel.Mention);
 	}
 }

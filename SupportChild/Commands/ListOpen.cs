@@ -8,26 +8,24 @@ using DSharpPlus.SlashCommands.Attributes;
 
 namespace SupportChild.Commands;
 
-public class ListAssignedCommand : ApplicationCommandModule
+public class ListOpen : ApplicationCommandModule
 {
 	[SlashRequireGuild]
-	[SlashCommand("listassigned", "Lists tickets assigned to a user.")]
-	public async Task OnExecute(InteractionContext command, [Option("User", "(Optional) User to list tickets for.")] DiscordUser user = null)
+	[SlashCommand("listopen", "Lists all open tickets, oldest first.")]
+	public async Task OnExecute(InteractionContext command)
 	{
-		DiscordUser listUser = user == null ? command.User : user;
-
-		if (!Database.TryGetAssignedTickets(listUser.Id, out List<Database.Ticket> assignedTickets))
+		if (!Database.TryGetOpenTickets(out List<Database.Ticket> openTickets))
 		{
 			await command.CreateResponseAsync(new DiscordEmbedBuilder
 			{
 				Color = DiscordColor.Red,
-				Description = "User does not have any assigned tickets."
+				Description = "Could not fetch any open tickets."
 			});
 			return;
 		}
 
 		List<string> listItems = new List<string>();
-		foreach (Database.Ticket ticket in assignedTickets)
+		foreach (Database.Ticket ticket in openTickets)
 		{
 			listItems.Add("**" + ticket.DiscordRelativeTime() + ":** <#" + ticket.channelID + "> by <@" + ticket.creatorID + ">\n");
 		}
@@ -37,7 +35,6 @@ public class ListAssignedCommand : ApplicationCommandModule
 		{
 			embeds.Add(new DiscordEmbedBuilder
 			{
-				Title = "Assigned tickets: ",
 				Color = DiscordColor.Green,
 				Description = message
 			});
