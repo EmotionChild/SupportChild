@@ -32,7 +32,7 @@
       <PackageReference Include="DSharpPlus.SlashCommands" Version="4.2.0" />
       <PackageReference Include="Gress" Version="2.0.1" />
       <PackageReference Include="JsonExtensions" Version="1.2.0" />
-      <PackageReference Include="MiniRazor.CodeGen" Version="2.2.1" />
+      <PackageReference Include="MiniRazor.CodeGen" Version="2.2.2" />
       <PackageReference Include="MySql.Data" Version="8.0.30" />
       <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
       <PackageReference Include="Polly" Version="7.2.3" />
