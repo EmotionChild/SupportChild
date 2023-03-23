@@ -86,7 +86,7 @@ public class CloseCommand : ApplicationCommandModule
 			await using FileStream file = new FileStream(Transcriber.GetPath(ticket.id), FileMode.Open, FileAccess.Read);
 			DiscordMessageBuilder message = new DiscordMessageBuilder();
 			message.WithEmbed(embed);
-			message.WithFiles(new Dictionary<string, Stream> { { Transcriber.GetFilename(ticket.id), file } });
+			message.AddFiles(new Dictionary<string, Stream> { { Transcriber.GetFilename(ticket.id), file } });
 
 			await logChannel.SendMessageAsync(message);
 		}
@@ -107,7 +107,7 @@ public class CloseCommand : ApplicationCommandModule
 
 				DiscordMessageBuilder message = new DiscordMessageBuilder();
 				message.WithEmbed(embed);
-				message.WithFiles(new Dictionary<string, Stream> { { Transcriber.GetFilename(ticket.id), file } });
+				message.AddFiles(new Dictionary<string, Stream> { { Transcriber.GetFilename(ticket.id), file } });
 
 				await staffMember.SendMessageAsync(message);
 			}

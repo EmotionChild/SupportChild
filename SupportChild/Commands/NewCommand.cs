@@ -105,7 +105,7 @@ public class NewCommand : ApplicationCommandModule
 			case ComponentType.Button:
 				stringID = interaction.Data.CustomId.Replace("supportchild_newcommandbutton ", "");
 				break;
-			case ComponentType.Select:
+			case ComponentType.StringSelect:
 				if (interaction.Data.Values == null || interaction.Data.Values.Length <= 0) return;
 				stringID = interaction.Data.Values[0];
 				break;
