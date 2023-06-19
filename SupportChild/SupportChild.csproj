@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -39,7 +39,7 @@
       <PackageReference Include="Superpower" Version="3.0.0" />
       <PackageReference Include="Tyrrrz.Extensions" Version="1.6.5" />
       <PackageReference Include="WebMarkupMin.Core" Version="2.13.0" />
-      <PackageReference Include="YamlDotNet" Version="12.0.0" />
+      <PackageReference Include="YamlDotNet" Version="13.1.1" />
     </ItemGroup>
 
     <ItemGroup>
